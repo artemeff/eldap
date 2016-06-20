@@ -178,6 +178,23 @@ SearchRequest ::= [APPLICATION 3] SEQUENCE {
      filter          Filter,
      attributes      AttributeSelection }
 
+PersistentSearch ::= SEQUENCE {
+     changeTypes     INTEGER,
+     changesOnly     BOOLEAN,
+     returnECs       BOOLEAN }
+
+-- TODO
+EntryChangeNotification ::= SEQUENCE {
+     changeType      ENUMERATED {
+          add             (1),
+          delete          (2),
+          modify          (4),
+          modDN           (8)
+     },
+     previousDN      LDAPDN OPTIONAL,     -- modifyDN ops. only
+     changeNumber    INTEGER OPTIONAL     -- if supported
+}
+
 AttributeSelection ::= SEQUENCE OF selector LDAPString
                -- The LDAPString is constrained to
                -- <attributeSelector> in Section 4.5.1.8
@@ -287,4 +304,3 @@ PasswdModifyResponseValue ::= SEQUENCE {
      genPasswd        [0]     OCTET STRING OPTIONAL }
 
 END
-

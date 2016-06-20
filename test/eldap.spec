@@ -1,1 +1,1 @@
-{suites,"../eldap_test",all}.
+{suites, "../eldap_test", all}.

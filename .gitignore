@@ -1,0 +1,9 @@
+_build
+asngen
+include/ELDAPv3.*
+src/ELDAPv3.*
+.eunit
+*.o
+*.beam
+*.plt
+erl_crash.dump

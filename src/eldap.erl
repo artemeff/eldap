@@ -9,63 +9,33 @@
 %%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
 %%% See MIT-LICENSE at the top dir for licensing information.
 %%% --------------------------------------------------------------------
--vc('$Id$ ').
--export([open/1, open/2,
-	 simple_bind/3, simple_bind/4,
-	 controlling_process/2,
-	 start_tls/2, start_tls/3, start_tls/4,
-         modify_password/3, modify_password/4, modify_password/5,
-	 getopts/2,
-	 baseObject/0,singleLevel/0,wholeSubtree/0,close/1,
-	 equalityMatch/2,greaterOrEqual/2,lessOrEqual/2,
-	 extensibleMatch/2,
-	 search/2, search/3,
-	 approxMatch/2,substrings/2,present/1,
-	 'and'/1,'or'/1,'not'/1,mod_add/2, mod_delete/2,
-	 mod_replace/2,
-	 modify/3, modify/4,
-	 add/3, add/4,
-	 delete/2, delete/3,
-	 modify_dn/5,parse_dn/1,
-	 parse_ldap_url/1]).
+-export(
+	[ open/1, open/2
+	, simple_bind/3, simple_bind/4
+	, controlling_process/2
+	, start_tls/2, start_tls/3, start_tls/4
+	, modify_password/3, modify_password/4, modify_password/5
+	, getopts/2
+	, baseObject/0, singleLevel/0, wholeSubtree/0, close/1
+	, equalityMatch/2, greaterOrEqual/2, lessOrEqual/2
+	, extensibleMatch/2
+	, control/2
+	, search/2, search/3
+	, approxMatch/2, substrings/2, present/1
+	, 'and'/1, 'or'/1, 'not'/1, mod_add/2, mod_delete/2
+	, mod_replace/2
+	, modify/3, modify/4
+	, add/3, add/4
+	, delete/2, delete/3
+	, modify_dn/5, parse_dn/1
+	, parse_ldap_url/1
+	, neverDerefAliases/0, derefInSearching/0
+	, derefFindingBaseObj/0, derefAlways/0
+	% for upgrades
+	, loop/2
+	]).
 
--export([neverDerefAliases/0, derefInSearching/0,
-         derefFindingBaseObj/0, derefAlways/0]).
-
-%% for upgrades
--export([loop/2]).
-
--import(lists,[concat/1]).
-
--include("ELDAPv3.hrl").
 -include("eldap.hrl").
-
--define(LDAP_VERSION, 3).
--define(LDAP_PORT, 389).
--define(LDAPS_PORT, 636).
-
--record(eldap, {version = ?LDAP_VERSION,
-		host,                % Host running LDAP server
-		port = ?LDAP_PORT,   % The LDAP server port
-		fd,                  % Socket filedescriptor.
-		prev_fd,	     % Socket that was upgraded by start_tls
-		binddn = "",         % Name of the entry to bind as
-		passwd,              % Password for (above) entry
-		id = 0,              % LDAP Request ID
-		log,                 % User provided log function
-		timeout = infinity,  % Request timeout
-		anon_auth = false,   % Allow anonymous authentication
-		ldaps = false,       % LDAP/LDAPS
-		using_tls = false,   % true if LDAPS or START_TLS executed
-		tls_opts = [],       % ssl:ssloption()
-		tcp_opts = []        % inet6 support
-	       }).
-
-%%% For debug purposes
-%%-define(PRINT(S, A), io:fwrite("~w(~w): " ++ S, [?MODULE,?LINE|A])).
--define(PRINT(S, A), true).
-
--define(elog(S, A), error_logger:info_msg("~w(~w): "++S,[?MODULE,?LINE|A])).
 
 %%% ====================================================================
 %%% Exported interface
@@ -84,25 +54,25 @@
 %%%
 %%% --------------------------------------------------------------------
 open(Hosts) ->
-    open(Hosts, []).
+	open(Hosts, []).
 
 open(Hosts, Opts) when is_list(Hosts), is_list(Opts) ->
-    Self = self(),
-    Pid = spawn_link(fun() -> init(Hosts, Opts, Self) end),
-    recv(Pid).
+	Self = self(),
+	Pid = spawn_link(fun() -> init(Hosts, Opts, Self) end),
+	recv(Pid).
 
 %%% --------------------------------------------------------------------
 %%% Upgrade an existing connection to tls
 %%% --------------------------------------------------------------------
 start_tls(Handle, TlsOptions) ->
-    start_tls(Handle, TlsOptions, infinity).
+	start_tls(Handle, TlsOptions, infinity).
 
 start_tls(Handle, TlsOptions, Timeout) ->
-    start_tls(Handle, TlsOptions, Timeout, asn1_NOVALUE).
+	start_tls(Handle, TlsOptions, Timeout, asn1_NOVALUE).
 
 start_tls(Handle, TlsOptions, Timeout, Controls) ->
-    send(Handle, {start_tls,TlsOptions,Timeout,Controls}),
-    recv(Handle).
+	send(Handle, {start_tls,TlsOptions,Timeout,Controls}),
+	recv(Handle).
 
 %%% --------------------------------------------------------------------
 %%% Modify the password of a user.
@@ -189,13 +159,15 @@ add(Handle, Entry, Attributes, Controls) when is_pid(Handle),is_list(Entry),is_l
 
 %%% Do sanity check !
 add_attrs(Attrs) ->
-    F = fun({Type,Vals}) when is_list(Type),is_list(Vals) ->
+    F = fun({Type, Vals}) when is_list(Type),is_list(Vals) ->
 		%% Confused ? Me too... :-/
 		{'AddRequest_attributes',Type, Vals}
 	end,
     case catch lists:map(F, Attrs) of
-	{'EXIT', _} -> throw({error, attribute_values});
-	Else        -> Else
+		{'EXIT', _} ->
+			throw({error, attribute_values});
+		Else ->
+			Else
     end.
 
 %%% --------------------------------------------------------------------
@@ -245,8 +217,8 @@ m(Operation, Type, Values) ->
     #'ModifyRequest_changes_SEQOF'{
        operation = Operation,
        modification = #'PartialAttribute'{
-	 type = Type,
-	 vals = Values}}.
+			 type = Type,
+	 	 	 vals = Values}}.
 
 %%% --------------------------------------------------------------------
 %%% Modify an entry. Given an entry a number of modification
@@ -266,8 +238,7 @@ modify_dn(Handle, Entry, NewRDN, DelOldRDN, NewSup)
 
 modify_dn(Handle, Entry, NewRDN, DelOldRDN, NewSup, Controls)
   when is_pid(Handle),is_list(Entry),is_list(NewRDN),is_atom(DelOldRDN),is_list(NewSup) ->
-    send(Handle, {modify_dn, Entry, NewRDN,
-		  bool_p(DelOldRDN), optional(NewSup), Controls}),
+    send(Handle, {modify_dn, Entry, NewRDN, bool_p(DelOldRDN), optional(NewSup), Controls}),
     recv(Handle).
 
 %%% Sanity checks !
@@ -276,6 +247,34 @@ bool_p(Bool) when Bool==true;Bool==false -> Bool.
 
 optional([])    -> asn1_NOVALUE;
 optional(Value) -> Value.
+
+% TODO: documentation
+%%% --------------------------------------------------------------------
+%%% Helpers for creating controls
+%%%
+%%% Example:
+%%% --------------------------------------------------------------------
+
+control(persistent_search = Control, Options) ->
+		make_control(Control, 'ELDAPv3':encode('PersistentSearch', #'PersistentSearch'{
+				changeTypes=proplists:get_value(change_types, Options),
+				changesOnly=proplists:get_value(changes_only, Options, false),
+				returnECs=proplists:get_value(return_ecs, Options, false)
+		}));
+% TODO: add/check this control
+control(entry_change_notification = Control, Options) ->
+		make_control(Control, 'ELDAPv3':encode('EntryChangeNotification', #'EntryChangeNotification'{
+				changeType=proplists:get_value(changeType, Options)
+		}));
+control(Control, _) ->
+		throw({error, {unknown_control, Control}}).
+
+make_control(persistent_search, {ok, Value}) ->
+		#'Control'{controlType="2.16.840.1.113730.3.4.3", controlValue=Value};
+% TODO: add/check this control
+make_control(entry_change_notification, {ok, Value}) ->
+		#'Control'{controlType="2.16.840.1.113730.3.4.7", controlValue=Value}.
+
 
 %%% --------------------------------------------------------------------
 %%% Synchronous search of the Directory returning a
@@ -302,26 +301,31 @@ optional(Value) -> Value.
 %%%        []}}
 %%%
 %%% --------------------------------------------------------------------
-search(Handle, X) when is_pid(Handle), is_record(X,eldap_search) ; is_list(X) ->
+search(Handle, X) when is_pid(Handle), is_record(X, eldap_search); is_list(X) ->
     search(Handle, X, asn1_NOVALUE).
-    
+
 search(Handle, A, Controls) when is_pid(Handle), is_record(A, eldap_search) ->
     call_search(Handle, A, Controls);
 search(Handle, L, Controls) when is_pid(Handle), is_list(L) ->
     case catch parse_search_args(L) of
-	{error, Emsg}                  -> {error, Emsg};
-	A when is_record(A, eldap_search) -> call_search(Handle, A, Controls)
+		{error, Emsg} ->
+			{error, Emsg};
+		A when is_record(A, eldap_search) ->
+			call_search(Handle, A, Controls)
     end.
 
+call_search(Handle, #eldap_search{async=true} = A, Controls) ->
+	send(Handle, {search_async, A, Controls}),
+	ok;
 call_search(Handle, A, Controls) ->
     send(Handle, {search, A, Controls}),
     recv(Handle).
 
 parse_search_args(Args) ->
-    parse_search_args(Args,
-		      #eldap_search{scope = wholeSubtree,
-				    deref = derefAlways}).
+    parse_search_args(Args, #eldap_search{scope = wholeSubtree, deref = derefAlways}).
 
+parse_search_args([{async, Async}|T],A) ->
+	parse_search_args(T,A#eldap_search{async = Async});
 parse_search_args([{base, Base}|T],A) ->
     parse_search_args(T,A#eldap_search{base = Base});
 parse_search_args([{filter, Filter}|T],A) ->
@@ -359,9 +363,9 @@ derefAlways()         -> derefAlways.
 %%%
 %%% Boolean filter operations
 %%%
-'and'(ListOfFilters) when is_list(ListOfFilters) -> {'and',ListOfFilters}.
-'or'(ListOfFilters)  when is_list(ListOfFilters) -> {'or', ListOfFilters}.
-'not'(Filter)        when is_tuple(Filter)       -> {'not',Filter}.
+'and'(ListOfFilters) when is_list(ListOfFilters) -> {'and', ListOfFilters}.
+'or'(ListOfFilters)  when is_list(ListOfFilters) -> {'or',  ListOfFilters}.
+'not'(Filter)        when is_tuple(Filter)       -> {'not', Filter}.
 
 %%%
 %%% The following Filter parameters consist of an attribute
@@ -373,8 +377,7 @@ lessOrEqual(Desc, Value)     -> {lessOrEqual, av_assert(Desc, Value)}.
 approxMatch(Desc, Value)     -> {approxMatch, av_assert(Desc, Value)}.
 
 av_assert(Desc, Value) ->
-    #'AttributeValueAssertion'{attributeDesc  = Desc,
-			       assertionValue = Value}.
+    #'AttributeValueAssertion'{attributeDesc=Desc, assertionValue=Value}.
 
 %%%
 %%% Filter to check for the presence of an attribute
@@ -400,16 +403,14 @@ present(Attribute) when is_list(Attribute) ->
 %%%
 substrings(Type, SubStr) when is_list(Type), is_list(SubStr) ->
     Ss = v_substr(SubStr),
-    {substrings,#'SubstringFilter'{type = Type,
-				   substrings = Ss}}.
+    {substrings,#'SubstringFilter'{type=Type, substrings=Ss}}.
 
 %%%
 %%% Filter for extensibleMatch
 %%%
 extensibleMatch(MatchValue, OptArgs) ->
-    MatchingRuleAssertion =  
-	mra(OptArgs, #'MatchingRuleAssertion'{matchValue = MatchValue}),
-    {extensibleMatch, MatchingRuleAssertion}.
+    MRA = mra(OptArgs, #'MatchingRuleAssertion'{matchValue = MatchValue}),
+    {extensibleMatch, MRA}.
 
 mra([{matchingRule,Val}|T], Ack) when is_list(Val) ->
     mra(T, Ack#'MatchingRuleAssertion'{matchingRule=Val});
@@ -421,7 +422,7 @@ mra([{dnAttributes,false}|T], Ack) ->
     mra(T, Ack#'MatchingRuleAssertion'{dnAttributes="FALSE"});
 mra([H|_], _) ->
     throw({error,{extensibleMatch_arg,H}});
-mra([], Ack) -> 
+mra([], Ack) ->
     Ack.
 
 %%% --------------------------------------------------------------------
@@ -432,13 +433,13 @@ mra([], Ack) ->
 init(Hosts, Opts, Cpid) ->
     Data = parse_args(Opts, Cpid, #eldap{}),
     case try_connect(Hosts, Data) of
-	{ok,Data2} ->
-	    send(Cpid, {ok,self()}),
-	    ?MODULE:loop(Cpid, Data2);
-	Else ->
- 	    send(Cpid, Else),
-	    unlink(Cpid),
-	    exit(Else)
+		{ok, Data2} ->
+	    	send(Cpid, {ok,self()}),
+	    	?MODULE:loop(Cpid, Data2);
+		Else ->
+ 	    	send(Cpid, Else),
+	    	unlink(Cpid),
+	    	exit(Else)
     end.
 
 parse_args([{port, Port}|T], Cpid, Data) when is_integer(Port) ->
@@ -463,28 +464,32 @@ parse_args([{log, F}|T], Cpid, Data) when is_function(F) ->
     parse_args(T, Cpid, Data#eldap{log = F});
 parse_args([{log, _}|T], Cpid, Data) ->
     parse_args(T, Cpid, Data);
+parse_args([{reply_to, Pid}|T], Cpid, Data) when is_pid(Pid) ->
+    parse_args(T, Cpid, Data#eldap{reply_to = Pid});
 parse_args([H|_], Cpid, _) ->
-    send(Cpid, {error,{wrong_option,H}}),
+    send(Cpid, {error, {wrong_option, H}}),
     unlink(Cpid),
     exit(wrong_option);
 parse_args([], _, Data) ->
     Data.
 
-tcp_opts([Opt|Opts], Cpid, Acc) -> 
-    Key = if is_atom(Opt) -> Opt;
-	     is_tuple(Opt) -> element(1,Opt)
-	  end,
-    case lists:member(Key,[active,binary,deliver,list,mode,packet]) of
-	false ->
-	    tcp_opts(Opts, Cpid, [Opt|Acc]);
-	true ->
-	    tcp_opts_error(Opt, Cpid)
+tcp_opts([Opt|Opts], Cpid, Acc) ->
+	Key = case Opt of
+		Opt when is_atom(Opt) -> Opt;
+		Opt when is_tuple(Opt) -> element(1, Opt)
+	end,
+    case lists:member(Key, ?DENIED_TCP_OPTS) of
+		false ->
+	    	tcp_opts(Opts, Cpid, [Opt|Acc]);
+		true ->
+	    	tcp_opts_error(Opt, Cpid)
     end;
-tcp_opts([], _Cpid, Acc) -> Acc.
-    
+tcp_opts([], _Cpid, Acc) ->
+	Acc.
+
 tcp_opts_error(Opt, Cpid) ->
-    send(Cpid, {error, {{forbidden_tcp_option,Opt}, 
-			"This option affects the eldap functionality and can't be set by user"}}),
+    send(Cpid, {error, {{forbidden_tcp_option, Opt},
+		"This option affects the eldap functionality and can't be set by user"}}),
     unlink(Cpid),
     exit(forbidden_tcp_option).
 
@@ -493,22 +498,23 @@ tcp_opts_error(Opt, Cpid) ->
 %%% connection is made.
 
 try_connect([Host|Hosts], Data) ->
-    TcpOpts = [{packet, asn1}, {active,false}],
-    try do_connect(Host, Data, TcpOpts) of
-	{ok,Fd} -> {ok,Data#eldap{host = Host, fd   = Fd}};
-	Err    ->
-	    log2(Data, "Connect: ~p failed ~p~n",[Host, Err]),
-	    try_connect(Hosts, Data)
+	TcpOpts = [{packet, asn1}, {active,false}],
+	try do_connect(Host, Data, TcpOpts) of
+		{ok, Fd} ->
+			{ok, Data#eldap{host=Host, fd=Fd}};
+		Err ->
+			log2(Data, "Connect: ~p failed ~p~n", [Host, Err]),
+			try_connect(Hosts, Data)
     catch _:Err ->
-	    log2(Data, "Connect: ~p failed ~p~n",[Host, Err]),
+	    log2(Data, "Connect: ~p failed ~p~n", [Host, Err]),
 	    try_connect(Hosts, Data)
     end;
-try_connect([],_) ->
-    {error,"connect failed"}.
+try_connect([], _) ->
+    {error, "connect failed"}.
 
 do_connect(Host, Data, Opts) when Data#eldap.ldaps == false ->
     gen_tcp:connect(Host, Data#eldap.port, Opts ++ Data#eldap.tcp_opts,
-		    Data#eldap.timeout);
+		Data#eldap.timeout);
 do_connect(Host, Data, Opts) when Data#eldap.ldaps == true ->
     ssl:connect(Host, Data#eldap.port,
 		Opts ++ Data#eldap.tls_opts ++ Data#eldap.tcp_opts,
@@ -516,95 +522,99 @@ do_connect(Host, Data, Opts) when Data#eldap.ldaps == true ->
 
 loop(Cpid, Data) ->
     receive
+		% FIXME maybe use simple search?
+		{From, {search_async, A, Controls}} ->
+			{Res, NewData} = do_search(Data, A, Controls),
+		    send(From, Res),
+		    ?MODULE:loop(Cpid, NewData);
 
-	{From, {search, A, Controls}} ->
-	    {Res,NewData} = do_search(Data, A, Controls),
-	    send(From,Res),
-	    ?MODULE:loop(Cpid, NewData);
+		{From, {search, A, Controls}} ->
+		    {Res, NewData} = do_search(Data, A, Controls),
+		    send(From, Res),
+		    ?MODULE:loop(Cpid, NewData);
 
-	{From, {modify, Obj, Mod, Controls}} ->
-	    {Res,NewData} = do_modify(Data, Obj, Mod, Controls),
-	    send(From,Res),
-	    ?MODULE:loop(Cpid, NewData);
+		{From, {modify, Obj, Mod, Controls}} ->
+		    {Res, NewData} = do_modify(Data, Obj, Mod, Controls),
+		    send(From, Res),
+		    ?MODULE:loop(Cpid, NewData);
 
-	{From, {modify_dn, Obj, NewRDN, DelOldRDN, NewSup, Controls}} ->
-	    {Res,NewData} = do_modify_dn(Data, Obj, NewRDN, DelOldRDN, NewSup, Controls),
-	    send(From,Res),
-	    ?MODULE:loop(Cpid, NewData);
+		{From, {modify_dn, Obj, NewRDN, DelOldRDN, NewSup, Controls}} ->
+		    {Res, NewData} = do_modify_dn(Data, Obj, NewRDN, DelOldRDN, NewSup, Controls),
+		    send(From, Res),
+		    ?MODULE:loop(Cpid, NewData);
 
-	{From, {add, Entry, Attrs, Controls}} ->
-	    {Res,NewData} = do_add(Data, Entry, Attrs, Controls),
-	    send(From,Res),
-	    ?MODULE:loop(Cpid, NewData);
+		{From, {add, Entry, Attrs, Controls}} ->
+		    {Res, NewData} = do_add(Data, Entry, Attrs, Controls),
+		    send(From, Res),
+		    ?MODULE:loop(Cpid, NewData);
 
-	{From, {delete, Entry, Controls}} ->
-	    {Res,NewData} = do_delete(Data, Entry, Controls),
-	    send(From,Res),
-	    ?MODULE:loop(Cpid, NewData);
+		{From, {delete, Entry, Controls}} ->
+		    {Res, NewData} = do_delete(Data, Entry, Controls),
+		    send(From, Res),
+		    ?MODULE:loop(Cpid, NewData);
 
-	{From, {simple_bind, Dn, Passwd, Controls}} ->
-	    {Res,NewData} = do_simple_bind(Data, Dn, Passwd, Controls),
-	    send(From,Res),
-	    ?MODULE:loop(Cpid, NewData);
+		{From, {simple_bind, Dn, Passwd, Controls}} ->
+		    {Res, NewData} = do_simple_bind(Data, Dn, Passwd, Controls),
+		    send(From, Res),
+		    ?MODULE:loop(Cpid, NewData);
 
-	{From, {cnt_proc, NewCpid}} ->
-	    unlink(Cpid),
-	    send(From,ok),
-	    ?PRINT("New Cpid is: ~p~n",[NewCpid]),
-	    ?MODULE:loop(NewCpid, Data);
+		{From, {cnt_proc, NewCpid}} ->
+		    unlink(Cpid),
+		    send(From,ok),
+		    ?PRINT("New Cpid is: ~p~n",[NewCpid]),
+		    ?MODULE:loop(NewCpid, Data);
 
-	{From, {start_tls,TlsOptions,Timeout,Controls}} ->
-	    {Res,NewData} = do_start_tls(Data, TlsOptions, Timeout, Controls),
-	    send(From,Res),
-	    ?MODULE:loop(Cpid, NewData);
+		{From, {start_tls,TlsOptions,Timeout,Controls}} ->
+		    {Res, NewData} = do_start_tls(Data, TlsOptions, Timeout, Controls),
+		    send(From, Res),
+		    ?MODULE:loop(Cpid, NewData);
 
         {From, {passwd_modify,Dn,NewPasswd,OldPasswd,Controls}} ->
-            {Res,NewData} = do_passwd_modify(Data, Dn, NewPasswd, OldPasswd, Controls),
+            {Res, NewData} = do_passwd_modify(Data, Dn, NewPasswd, OldPasswd, Controls),
             send(From, Res),
             ?MODULE:loop(Cpid, NewData);
 
-	{_From, close} ->
-	    {no_reply,_NewData} = do_unbind(Data),
-	    unlink(Cpid),
-	    exit(closed);
+		{_From, close} ->
+		    {no_reply,_NewData} = do_unbind(Data),
+		    unlink(Cpid),
+		    exit(closed);
 
-	{From, {getopts, OptNames}} ->
-	    Result = 
-		try
-		    [case OptName of
-			 port ->    {port,    Data#eldap.port};
-			 log ->     {log,     Data#eldap.log};
-			 timeout -> {timeout, Data#eldap.timeout};
-			 ssl ->     {ssl,     Data#eldap.ldaps};
-			 {sslopts, SslOptNames} when Data#eldap.using_tls==true -> 
-			     case ssl:getopts(Data#eldap.fd, SslOptNames) of
-				 {ok,SslOptVals} -> {sslopts, SslOptVals};
-				 {error,Reason} -> throw({error,Reason})
-			     end;
-			 {sslopts, _} ->
-			     throw({error,no_tls});
-			 {tcpopts, TcpOptNames} -> 
-			     case inet:getopts(Data#eldap.fd, TcpOptNames) of
-				 {ok,TcpOptVals} -> {tcpopts, TcpOptVals};
-				 {error,Posix} -> throw({error,Posix})
-			     end
-		     end || OptName <- OptNames]
-		of
-		    OptsList -> {ok,OptsList}
-		catch
-		    throw:Error -> Error;
-		    Class:Error -> {error,{Class,Error}}
-		end,
-	    send(From, Result),
-	    ?MODULE:loop(Cpid, Data);
+		{From, {getopts, OptNames}} ->
+		    Result = try
+			    [case OptName of
+				 port ->    {port,    Data#eldap.port};
+				 log ->     {log,     Data#eldap.log};
+				 timeout -> {timeout, Data#eldap.timeout};
+				 ssl ->     {ssl,     Data#eldap.ldaps};
+				 {sslopts, SslOptNames} when Data#eldap.using_tls==true ->
+				     case ssl:getopts(Data#eldap.fd, SslOptNames) of
+					 	{ok, SslOptVals} -> {sslopts, SslOptVals};
+					 	{error, Reason}  -> throw({error, Reason})
+				     end;
+				 {sslopts, _} ->
+				     throw({error, no_tls});
+				 {tcpopts, TcpOptNames} ->
+				     case inet:getopts(Data#eldap.fd, TcpOptNames) of
+					 	{ok, TcpOptVals} -> {tcpopts, TcpOptVals};
+					 	{error, Posix}   -> throw({error, Posix})
+				     end
+			     end || OptName <- OptNames]
+			of
+			    OptsList -> {ok,OptsList}
+			catch
+			    throw:Error -> Error;
+			    Class:Error -> {error,{Class,Error}}
+			end,
+		    send(From, Result),
+		    ?MODULE:loop(Cpid, Data);
 
-	{Cpid, 'EXIT', Reason} ->
-	    ?PRINT("Got EXIT from Cpid, reason=~p~n",[Reason]),
-	    exit(Reason);
+		{Cpid, 'EXIT', Reason} ->
+		    ?PRINT("Got EXIT from Cpid, reason=~p~n", [Reason]),
+		    exit(Reason);
 
-	_XX ->
-	    ?PRINT("loop got: ~p~n",[_XX]),
-	    ?MODULE:loop(Cpid, Data)
+		_XX ->
+		    ?PRINT("loop got: ~p~n",[_XX]),
+		    ?MODULE:loop(Cpid, Data)
 
     end.
 
@@ -764,35 +774,35 @@ collect_search_responses(Data, Req, ID, Controls) ->
     log2(Data, "search reply = ~p~n", [Resp]),
     collect_search_responses(Data, S, ID, Resp, [], []).
 
-collect_search_responses(Data, S, ID, {ok,Msg}, Acc, Ref)
-  when is_record(Msg,'LDAPMessage') ->
+collect_search_responses(Data, S, ID, {ok, Msg}, Acc, Ref) when is_record(Msg, 'LDAPMessage') ->
     case Msg#'LDAPMessage'.protocolOp of
-	{'searchResDone',R} ->
-            case R#'LDAPResult'.resultCode of
-                success ->
-                    log2(Data, "search reply = searchResDone ~n", []),
-                    {ok,Acc,Ref,Data};
-		referral -> 
-		    {{ok, {referral,R#'LDAPResult'.referral}}, Data};
-                Reason ->
-                    {{error,Reason},Data}
-            end;
-	{'searchResEntry',R} when is_record(R,'SearchResultEntry') ->
-	    Resp = recv_response(S, Data),
-	    log2(Data, "search reply = ~p~n", [Resp]),
-	    collect_search_responses(Data, S, ID, Resp, [R|Acc], Ref);
-	{'searchResRef',R} ->
-	    %% At the moment we don't do anyting sensible here since
-	    %% I haven't been able to trigger the server to generate
-	    %% a response like this.
-	    Resp = recv_response(S, Data),
-	    log2(Data, "search reply = ~p~n", [Resp]),
-	    collect_search_responses(Data, S, ID, Resp, Acc, [R|Ref]);
-	Else ->
-	    throw({error,Else})
+		{searchResDone, R} ->
+			case R#'LDAPResult'.resultCode of
+				success ->
+					log2(Data, "search reply = searchResDone ~n", []),
+					{ok,Acc,Ref,Data};
+				referral ->
+					{{ok, {referral,R#'LDAPResult'.referral}}, Data};
+				Reason ->
+					{{error,Reason},Data}
+			end;
+		{searchResEntry, R} when is_record(R, 'SearchResultEntry') ->
+			Ret = Data#eldap.reply_to ! {ldap, R},
+		    Resp = recv_response(S, Data),
+		    log2(Data, "search reply = ~p~n", [Resp]),
+		    collect_search_responses(Data, S, ID, Resp, [R|Acc], Ref);
+		{searchResRef,R} ->
+		    %% At the moment we don't do anyting sensible here since
+		    %% I haven't been able to trigger the server to generate
+		    %% a response like this.
+		    Resp = recv_response(S, Data),
+		    log2(Data, "search reply = ~p~n", [Resp]),
+		    collect_search_responses(Data, S, ID, Resp, Acc, [R|Ref]);
+		Else ->
+		    throw({error,Else})
     end;
 collect_search_responses(_, _, _, Else, _, _) ->
-    throw({error,Else}).
+    throw({error, Else}).
 
 %%% --------------------------------------------------------------------
 %%% addRequest
@@ -977,10 +987,7 @@ send_request(S, Data, Id, {T,P}) ->
 send_request(S, Data, Id, {T,P,asn1_NOVALUE}) ->
     send_the_LDAPMessage(S, Data, #'LDAPMessage'{messageID = Id,
 						 protocolOp = {T,P}});
-send_request(S, Data, Id, {T,P,Controls0}) ->
-    Controls = [#'Control'{controlType=F1,
-			   criticality=F2,
-			   controlValue=F3} || {control,F1,F2,F3} <- Controls0],
+send_request(S, Data, Id, {T,P,Controls}) ->
     send_the_LDAPMessage(S, Data, #'LDAPMessage'{messageID = Id,
 						 protocolOp = {T,P},
 						 controls = Controls}).
@@ -988,8 +995,8 @@ send_request(S, Data, Id, {T,P,Controls0}) ->
 send_the_LDAPMessage(S, Data, LDAPMessage) ->
     {ok,Bytes} = 'ELDAPv3':encode('LDAPMessage', LDAPMessage),
     case do_send(S, Data, Bytes) of
-	{error,Reason} -> throw({gen_tcp_error,Reason});
-	Else           -> Else
+		{error,Reason} -> throw({gen_tcp_error,Reason});
+		Else           -> Else
     end.
 
 do_send(S, Data, Bytes) when Data#eldap.using_tls == false ->
@@ -1004,14 +1011,14 @@ do_recv(S, #eldap{using_tls=true, timeout=Timeout}, Len) ->
 
 recv_response(S, Data) ->
     case do_recv(S, Data, 0) of
-	{ok, Packet} ->
-	    case 'ELDAPv3':decode('LDAPMessage', Packet) of
-		{ok,Resp} -> {ok,Resp};
-		Error     -> throw(Error)
-	    end;
-	{error,Reason} ->
-	    throw({gen_tcp_error, Reason})
-    end.
+		{ok, Packet} ->
+		    case 'ELDAPv3':decode('LDAPMessage', Packet) of
+				{ok,Resp} -> {ok,Resp};
+				Error     -> throw(Error)
+		    end;
+		{error, Reason} ->
+			throw({gen_tcp_error, Reason})
+	end.
 
 %%% Check for expected kind of reply
 check_reply(Data, {ok,Msg}, Op) when
@@ -1043,7 +1050,7 @@ v_filter({approxMatch,AV})    -> {approxMatch,AV};
 v_filter({present,A})         -> {present,A};
 v_filter({substrings,S}) when is_record(S,'SubstringFilter') -> {substrings,S};
 v_filter({extensibleMatch,S}) when is_record(S,'MatchingRuleAssertion') -> {extensibleMatch,S};
-v_filter(_Filter) -> throw({error,concat(["unknown filter: ",_Filter])}).
+v_filter(_Filter) -> throw({error,lists:concat(["unknown filter: ",_Filter])}).
 
 v_modifications(Mods) ->
     F = fun({_,Op,_}) ->
@@ -1063,7 +1070,7 @@ v_substr([]) ->
 v_scope(baseObject)   -> baseObject;
 v_scope(singleLevel)  -> singleLevel;
 v_scope(wholeSubtree) -> wholeSubtree;
-v_scope(_Scope)       -> throw({error,concat(["unknown scope: ",_Scope])}).
+v_scope(_Scope)       -> throw({error,lists:concat(["unknown scope: ",_Scope])}).
 
 v_deref(DR = neverDerefAliases)   -> DR;
 v_deref(DR = derefInSearching)    -> DR;
@@ -1072,14 +1079,14 @@ v_deref(DR = derefAlways )        -> DR.
 
 v_bool(true)  -> true;
 v_bool(false) -> false;
-v_bool(_Bool) -> throw({error,concat(["not Boolean: ",_Bool])}).
+v_bool(_Bool) -> throw({error,lists:concat(["not Boolean: ",_Bool])}).
 
 v_timeout(I) when is_integer(I), I>=0 -> I;
-v_timeout(_I) -> throw({error,concat(["timeout not positive integer: ",_I])}).
+v_timeout(_I) -> throw({error,lists:concat(["timeout not positive integer: ",_I])}).
 
 v_attributes(Attrs) ->
     F = fun(A) when is_list(A) -> A;
-	   (A) -> throw({error,concat(["attribute not String: ",A])})
+	   (A) -> throw({error,lists:concat(["attribute not String: ",A])})
 	end,
     lists:map(F,Attrs).
 
@@ -1101,35 +1108,39 @@ log(_, _, _, _) ->
 %%% Misc. routines
 %%% --------------------------------------------------------------------
 
-send(To,Msg) -> To ! {self(),Msg}.
-recv(From)   ->
+send(To, Msg) ->
+	To ! {self(), Msg}.
+
+recv(From) ->
     receive
-	{From,Msg} -> Msg;
-	{'EXIT', From, Reason} ->
-	    {error, {internal_error, Reason}}
+		{From, Msg} ->
+			Msg;
+		{'EXIT', From, Reason} ->
+			{error, {internal_error, Reason}}
     end.
 
 ldap_closed_p(Data, Emsg) when Data#eldap.using_tls == true ->
     %% Check if the SSL socket seems to be alive or not
     case catch ssl:sockname(Data#eldap.fd) of
-	{error, _} ->
-	    ssl:close(Data#eldap.fd),
-	    {error, ldap_closed};
-	{ok, _} ->
-	    {error, Emsg};
-	_ ->
-	    %% sockname crashes if the socket pid is not alive
-	    {error, ldap_closed}
-    end;
+		{error, _} ->
+			ssl:close(Data#eldap.fd),
+			{error, ldap_closed};
+		{ok, _} ->
+			{error, Emsg};
+		_ ->
+			%% sockname crashes if the socket pid is not alive
+			{error, ldap_closed}
+	end;
 ldap_closed_p(Data, Emsg) ->
     %% non-SSL socket
-    case inet:port(Data#eldap.fd) of
-	{error,_} -> {error, ldap_closed};
-	_         -> {error,Emsg}
+	case inet:port(Data#eldap.fd) of
+		{error, _} ->
+			{error, ldap_closed};
+		_ ->
+			{error, Emsg}
     end.
 
 bump_id(Data) -> Data#eldap.id + 1.
-
 
 %%% --------------------------------------------------------------------
 %%% parse_dn/1  -  Implementation of RFC 2253:
@@ -1184,11 +1195,13 @@ bump_id(Data) -> Data#eldap.id + 1.
 %%% --------------------------------------------------------------------
 
 parse_dn("") -> % empty DN string
-    {ok,[]};
-parse_dn([H|_] = Str) when H=/=$, -> % 1:st name-component !
-    case catch parse_name(Str,[]) of
-	{'EXIT',Reason} -> {parse_error,internal_error,Reason};
-	Else            -> Else
+    {ok, []};
+parse_dn([H|_] = Str) when H =/= $, -> % 1:st name-component!
+    case catch parse_name(Str, []) of
+		{'EXIT', Reason} ->
+			{parse_error, internal_error, Reason};
+		Else ->
+			Else
     end.
 
 parse_name("",Acc)  ->
@@ -1204,20 +1217,20 @@ parse_name_component(Str) ->
 
 parse_name_component(Str,Acc) ->
     case parse_attribute_type_and_value(Str) of
-	{[$+|Rest], ATV} ->
-	    parse_name_component(Rest,[ATV|Acc]);
-	{Rest,ATV} ->
-	    {Rest,lists:reverse([ATV|Acc])}
+		{[$+|Rest], ATV} ->
+		    parse_name_component(Rest,[ATV|Acc]);
+		{Rest,ATV} ->
+		    {Rest,lists:reverse([ATV|Acc])}
     end.
 
 parse_attribute_type_and_value(Str) ->
     case parse_attribute_type(Str) of
-	{_Rest,[]} ->
-	    parse_error(expecting_attribute_type,Str);
-	{Rest,Type} ->
-	    Rest2 = parse_equal_sign(Rest),
-	    {Rest3,Value} = parse_attribute_value(Rest2),
-	    {Rest3,{attribute_type_and_value,Type,Value}}
+		{_Rest,[]} ->
+		    parse_error(expecting_attribute_type,Str);
+		{Rest,Type} ->
+		    Rest2 = parse_equal_sign(Rest),
+		    {Rest3,Value} = parse_attribute_value(Rest2),
+		    {Rest3,{attribute_type_and_value,Type,Value}}
     end.
 
 -define(IS_ALPHA(X) , X>=$a,X=<$z;X>=$A,X=<$Z ).
@@ -1237,8 +1250,6 @@ parse_attribute_type([H|_] = Str) when ?IS_DIGIT(H) ->
     parse_oid(Str);
 parse_attribute_type(Str) ->
     parse_error(invalid_attribute_type,Str).
-
-
 
 %%% Is a hexstring !
 parse_attribute_value([$#,X,Y|T]) when ?IS_HEXCHAR(X),?IS_HEXCHAR(Y) ->
@@ -1339,19 +1350,19 @@ parse_error(Emsg,Rest) ->
 parse_ldap_url("ldap://" ++ Rest1 = Str) ->
     {Rest2,HostPort} = parse_hostport(Rest1),
     %% Split the string into DN and Attributes+etc
-    {Sdn,Rest3} = split_string(rm_leading_slash(Rest2),$?),
+    {Sdn,Rest3} = split_string(rm_leading_slash(Rest2), $?),
     case parse_dn(Sdn) of
-	{parse_error,internal_error,_Reason} ->
-	    {parse_error,internal_error,{Str,[]}};
-	{parse_error,Emsg,Tail} ->
-	    Head = get_head(Str,Tail),
-	    {parse_error,Emsg,{Head,Tail}};
-	{ok,DN} ->
-            %% We stop parsing here for now and leave
-            %% 'scope', 'filter' and 'extensions' to
-            %% be implemented later if needed.
-	    {_Rest4,Attributes} = parse_attributes(Rest3),
-	    {ok,HostPort,DN,Attributes}
+		{parse_error, internal_error, _Reason} ->
+		    {parse_error, internal_error, {Str, []}};
+		{parse_error, Emsg, Tail} ->
+		    Head = get_head(Str, Tail),
+		    {parse_error, Emsg, {Head, Tail}};
+		{ok, DN} ->
+	        %% We stop parsing here for now and leave
+	        %% 'scope', 'filter' and 'extensions' to
+	        %% be implemented later if needed.
+		    {_Rest4, Attributes} = parse_attributes(Rest3),
+		    {ok, HostPort, DN, Attributes}
     end.
 
 rm_leading_slash([$/|Tail]) -> Tail;
@@ -1360,50 +1371,56 @@ rm_leading_slash(Tail)      -> Tail.
 parse_attributes([$?|Tail]) ->
     case split_string(Tail,$?) of
         {[],Attributes} ->
-	    {[],{attributes,string:tokens(Attributes,",")}};
+	    	{[], {attributes, string:tokens(Attributes,",")}};
         {Attributes,Rest} ->
-            {Rest,{attributes,string:tokens(Attributes,",")}}
+            {Rest, {attributes, string:tokens(Attributes,",")}}
     end.
 
 parse_hostport(Str) ->
     {HostPort,Rest} = split_string(Str,$/),
     case split_string(HostPort,$:) of
-	{Shost,[]} ->
-	    {Rest,{parse_host(Rest,Shost),?LDAP_PORT}};
-	{Shost,[$:|Sport]} ->
-	    {Rest,{parse_host(Rest,Shost),
-		   parse_port(Rest,Sport)}}
+		{Shost,[]} ->
+		    {Rest, {parse_host(Rest,Shost),?LDAP_PORT}};
+		{Shost,[$:|Sport]} ->
+		    {Rest, {parse_host(Rest,Shost), parse_port(Rest,Sport)}}
     end.
 
 parse_port(Rest,Sport) ->
-    try	list_to_integer(Sport)
-    catch _:_ -> parse_error(parsing_port,Rest)
+    try
+		list_to_integer(Sport)
+    catch _:_ ->
+		parse_error(parsing_port,Rest)
     end.
 
 parse_host(Rest,Shost) ->
     case catch validate_host(Shost) of
-	{parse_error,Emsg,_} -> parse_error(Emsg,Rest);
-	Host -> Host
+		{parse_error, Emsg, _} ->
+			parse_error(Emsg, Rest);
+		Host ->
+			Host
     end.
 
 validate_host(Shost) ->
     case inet_parse:address(Shost) of
-	{ok,Host} -> Host;
-	_ ->
-	    case inet_parse:domain(Shost) of
-		true -> Shost;
-		_    -> parse_error(parsing_host,Shost)
-	    end
+		{ok, Host} ->
+			Host;
+		_ ->
+	    	case inet_parse:domain(Shost) of
+				true -> Shost;
+				_    -> parse_error(parsing_host,Shost)
+	    	end
     end.
 
 
 split_string(Str,Key) ->
-    Pred = fun(X) when X==Key -> false; (_) -> true end,
-    lists:splitwith(Pred, Str).
+    lists:splitwith(fun
+		(X) when X == Key -> false;
+		(_) -> true
+	end, Str).
 
-get_head(Str,Tail) ->
-    get_head(Str,Tail,[]).
+get_head(Str, Tail) ->
+    get_head(Str, Tail, []).
 
 %%% Should always succeed !
-get_head([H|Tail],Tail,Rhead) -> lists:reverse([H|Rhead]);
-get_head([H|Rest],Tail,Rhead) -> get_head(Rest,Tail,[H|Rhead]).
+get_head([H|Tail], Tail, Rhead) -> lists:reverse([H|Rhead]);
+get_head([H|Rest], Tail, Rhead) -> get_head(Rest, Tail, [H|Rhead]).
