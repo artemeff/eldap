@@ -25,7 +25,7 @@
 %%-include_lib("common_test/include/ct.hrl").
 -include_lib("test_server/include/test_server.hrl").
 -include_lib("eldap/include/eldap.hrl").
--include_lib("eldap/ebin/ELDAPv3.hrl").
+-include_lib("eldap/include/ELDAPv3.hrl").
 
 
 -define(TIMEOUT, 120000). % 2 min
@@ -102,7 +102,7 @@ connection_tests() ->
 init_per_suite(Config) ->
     SSL_available = init_ssl_certs_et_al(Config),
     LDAP_server =  find_first_server(false, [{config,eldap_server},
-					     {config,ldap_server}, 
+					     {config,ldap_server},
 					     {"localhost",9876},
 					     {"aramis.otp.ericsson.se",9876}]),
     LDAPS_server =
@@ -168,7 +168,7 @@ init_per_group(v4_connections, Config) ->
 init_per_group(v6_connections, Config) ->
     {ok, Hostname} = inet:gethostname(),
     case lists:member(list_to_atom(Hostname), ct:get_config(ipv6_hosts,[])) of
-	true -> 
+	true ->
 	    [{tcp_listen_opts,  [inet6,{reuseaddr, true}]},
 	     {listen_host,  "::"},
 	     {tcp_connect_opts, [{tcpopts,[inet6]}]}
@@ -896,7 +896,7 @@ add_new_contents(H, Path, MyHost) ->
 		  {"dc", [MyHost]},
 		  {"o", ["Test machine"]}])),
     ?ok(eldap:add(H,  "dc=notHere,"++Path,
-		  [{"objectclass", ["referral", 
+		  [{"objectclass", ["referral",
 				    "dcObject"
 				   ]},
 		   {"ref", ["ldap://nowhere.example.com/notHere,"++Path]},
@@ -907,7 +907,7 @@ add_new_contents(H, Path, MyHost) ->
 
 ok(_, _, {error,entryAlreadyExists}) -> ok;
 ok(_, _, ok) -> ok;
-ok(MODULE, LINE, X) -> 
+ok(MODULE, LINE, X) ->
     ct:pal("~p:~p add_new_contents: ret from eldap:add = ~p",[MODULE,LINE,X]),
     X.
 
