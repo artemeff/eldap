@@ -258,7 +258,7 @@ optional(Value) -> Value.
 %%% PSearchControl = eldap:control(Name, [{change_types, [add, delete]},
 %%%                                       {changes_only, true}]);
 %%% Filter = eldap:substrings("cn", [{any,"o"}]),
-%%%	eldap:search(S, [{base, "dc=bluetail, dc=com"},
+%%% eldap:search(S, [{base, "dc=bluetail, dc=com"},
 %%%                  {filter, Filter},
 %%%                  {attributes,["cn"]}], [PSearchControl])).
 %%% --------------------------------------------------------------------
