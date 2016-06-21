@@ -248,11 +248,19 @@ bool_p(Bool) when Bool==true;Bool==false -> Bool.
 optional([])    -> asn1_NOVALUE;
 optional(Value) -> Value.
 
-% TODO: documentation
+
 %%% --------------------------------------------------------------------
 %%% Helpers for creating controls
 %%%
 %%% Example:
+%%%
+%%% Name = persistent_search,
+%%% PSearchControl = eldap:control(Name, [{change_types, [add, delete]},
+%%%                                       {changes_only, true}]);
+%%% Filter = eldap:substrings("cn", [{any,"o"}]),
+%%%	eldap:search(S, [{base, "dc=bluetail, dc=com"},
+%%%                  {filter, Filter},
+%%%                  {attributes,["cn"]}], [PSearchControl])).
 %%% --------------------------------------------------------------------
 
 control(persistent_search = Control, Options) ->
