@@ -257,7 +257,8 @@ optional(Value) -> Value.
 
 control(persistent_search = Control, Options) ->
 		make_control(Control, 'ELDAPv3':encode('PersistentSearch', #'PersistentSearch'{
-				changeTypes=proplists:get_value(change_types, Options),
+				changeTypes=
+					calc_change_types(proplists:get_value(change_types, Options, []), 0),
 				changesOnly=proplists:get_value(changes_only, Options, false),
 				returnECs=proplists:get_value(return_ecs, Options, false)
 		}));
@@ -275,6 +276,12 @@ make_control(persistent_search, {ok, Value}) ->
 make_control(entry_change_notification, {ok, Value}) ->
 		#'Control'{controlType="2.16.840.1.113730.3.4.7", controlValue=Value}.
 
+calc_change_types([], Acc)         -> Acc;
+calc_change_types([add|T], Acc)    -> calc_change_types(T, Acc + 1);
+calc_change_types([delete|T], Acc) -> calc_change_types(T, Acc + 2);
+calc_change_types([modify|T], Acc) -> calc_change_types(T, Acc + 4);
+calc_change_types([mod_dn|T], Acc) -> calc_change_types(T, Acc + 8);
+calc_change_types([_|T], Acc)      -> calc_change_types(T, Acc).
 
 %%% --------------------------------------------------------------------
 %%% Synchronous search of the Directory returning a

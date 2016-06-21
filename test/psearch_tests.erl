@@ -32,7 +32,7 @@ first() ->
 
     Filter = eldap:present("cn"),
     Control = eldap:control(persistent_search,
-        [ {change_types, 15}
+        [ {change_types, [modify]}
         , {changes_only, true}
         , {return_ecs, false}
         ]),
