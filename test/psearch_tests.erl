@@ -14,6 +14,8 @@ log(_Level, FormatString, FormatArg) ->
 rcv() ->
     receive
         Msg -> Msg
+    after
+        100 -> error
     end.
 
 first() ->
@@ -48,10 +50,12 @@ first() ->
     eldap:modify(Handle, "uid=yuri,ou=users,dc=example,dc=com",
         [eldap:mod_replace("sn", ["Artemev"])]),
 
-    ?assertEqual({ldap,
-        #'SearchResultEntry'{
-            objectName = <<"uid=yuri,ou=users,dc=example,dc=com">>,
-            attributes =
-                [ {'PartialAttribute',<<"cn">>,[<<"Yuri">>]}
-                , {'PartialAttribute',<<"sn">>,[<<"Artemev">>]}
-                ]}}, rcv()).
+    ExpectedResult = #eldap_search_result{
+        entries=[
+            #eldap_entry{
+                object_name= <<"uid=yuri,ou=users,dc=example,dc=com">>,
+                attributes=[ {<<"cn">>,[<<"admin">>]}
+                           , {<<"sn">>,[<<"Artemev">>]}
+                           ]}]},
+
+    ?assertEqual({ldap, ExpectedResult}, rcv()).

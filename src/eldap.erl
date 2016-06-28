@@ -802,7 +802,7 @@ collect_search_responses(Data, S, ID, {ok, Msg}, Acc, Ref) when is_record(Msg, '
 					{{error,Reason},Data}
 			end;
 		{searchResEntry, R} when is_record(R, 'SearchResultEntry') ->
-			Data#eldap.reply_to ! {ldap, R},
+			Data#eldap.reply_to ! {ldap, polish([R], [])},
 		    Resp = recv_response(S, Data),
 		    log2(Data, "search reply = ~p~n", [Resp]),
 		    collect_search_responses(Data, S, ID, Resp, [R|Acc], Ref);
